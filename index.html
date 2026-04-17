@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <!-- Cambio de fuentes a Quicksand -->
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -122,24 +121,49 @@
         </div>
     </div>
 
-    <!-- ONBOARDING (COLOR BRONCE BRILLANTE) -->
-    <div id="onboarding" class="fixed inset-0 z-[100] bg-gradient-to-br from-[#cd7f32] via-[#b87333] to-[#8b4513] flex flex-col items-center justify-center p-6 text-white overflow-y-auto">
+    <!-- ONBOARDING -->
+    <div id="onboarding" class="fixed inset-0 z-[100] bg-yellow-400 flex flex-col items-center justify-center p-6 text-indigo-900 overflow-y-auto">
         <div class="max-w-xl w-full text-center py-10 flex-grow flex flex-col justify-center">
             <div class="mb-4 animate__animated animate__fadeInDown">
-                <h1 class="text-7xl font-bold-game tracking-wider drop-shadow-2xl">FOOTPRINTS</h1>
-                <p class="text-3xl font-game text-orange-100 mt-2 uppercase tracking-widest">UNIT 9 SECOND GRADE</p>
+                <h1 class="text-7xl font-bold-game tracking-wider drop-shadow-lg">FOOTPRINTS</h1>
+                <p class="text-3xl font-game text-indigo-800 mt-2 uppercase tracking-widest">UNIT 9 SECOND GRADE</p>
             </div>
-            <div class="w-24 h-1 bg-white/30 mx-auto my-8 rounded-full"></div>
+            <div class="w-24 h-1 bg-indigo-900/20 mx-auto my-8 rounded-full"></div>
             <h2 class="text-4xl font-game mb-8">CHOOSE YOUR HERO!</h2>
             <div class="grid grid-cols-2 gap-6 mb-12">
-                <div onclick="selectPower('blue', 'Sparky')" class="glass p-6 cursor-pointer hover:scale-105 transition-all group">
+                <div onclick="selectPower('blue', 'Sparky')" class="glass p-6 cursor-pointer hover:scale-105 transition-all group border-indigo-200">
                     <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Sparky" class="w-32 h-32 mx-auto group-hover:rotate-12 transition-transform">
                     <p class="mt-4 font-bold-game text-indigo-600 uppercase">Blue Bolt</p>
                 </div>
-                <div onclick="selectPower('pink', 'Luna')" class="glass p-6 cursor-pointer hover:scale-105 transition-all group">
+                <div onclick="selectPower('pink', 'Luna')" class="glass p-6 cursor-pointer hover:scale-105 transition-all group border-pink-200">
                     <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Luna" class="w-32 h-32 mx-auto group-hover:-rotate-12 transition-transform">
                     <p class="mt-4 font-bold-game text-pink-600 uppercase">Pink Fire</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE BASE DE DATOS -->
+    <div id="db-modal" class="fixed inset-0 z-[300] modal-overlay flex items-center justify-center p-6 hidden">
+        <div class="glass max-w-2xl w-full p-8 animate__animated animate__fadeInUp flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold-game text-indigo-600">HALL OF FAME 🏆</h3>
+                <button onclick="closeDB()" class="text-slate-400 hover:text-slate-600 text-3xl">&times;</button>
+            </div>
+            <div class="overflow-y-auto flex-grow rounded-2xl border-2 border-indigo-50">
+                <table class="w-full text-left">
+                    <thead class="bg-indigo-50 sticky top-0">
+                        <tr>
+                            <th class="p-4 font-bold-game text-indigo-600">Name</th>
+                            <th class="p-4 font-bold-game text-indigo-600">Quiz</th>
+                            <th class="p-4 font-bold-game text-indigo-600">Sentences</th>
+                            <th class="p-4 font-bold-game text-indigo-600">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-list-content">
+                        <!-- Content via JS -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -199,13 +223,64 @@
         By: Ing. Milko Gonzales C.
     </footer>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Auth Logic
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+        initAuth();
+
+        window.dbRef = db;
+        window.appIdRef = appId;
+        window.saveGameRecord = async (name, qScore, sScore) => {
+            if (!auth.currentUser) return;
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'certificates'), {
+                    name,
+                    quizScore: qScore,
+                    sentenceScore: sScore,
+                    timestamp: serverTimestamp(),
+                    userId: auth.currentUser.uid
+                });
+            } catch (e) { console.error("Error saving to DB", e); }
+        };
+
+        window.fetchGameRecords = async () => {
+            if (!auth.currentUser) return [];
+            try {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'certificates'));
+                const snapshot = await getDocs(q);
+                return snapshot.docs.map(doc => doc.data());
+            } catch (e) { 
+                console.error("Error fetching", e); 
+                return [];
+            }
+        };
+    </script>
+
     <script>
         const originalVocabulary = [
             { word: 'DISH', icon: '🍽️' }, { word: 'WHAT', icon: '❓' }, { word: 'THAN', icon: '⚖️' },
             { word: 'CHEST', icon: '📦' }, { word: 'SUCH', icon: '🌟' }, { word: 'THIN', icon: '📏' },
             { word: 'PUSH', icon: '🚪' }, { word: 'SHINE', icon: '✨' }, { word: 'CHASE', icon: '🏃' },
             { word: 'WHILE', icon: '⏳' }, { word: 'CATCH', icon: '🧤' }, { word: 'SURE', icon: '✅' },
-            { word: 'WHICH', icon: '🧙' }, { word: 'THEN', icon: '➡️' }, { word: 'WISPER', icon: '🤫' },
+            { word: 'WHICH', icon: '🧙' }, { word: 'THEN', icon: '➡️' }, { word: 'WHISPER', icon: '🤫' },
             { word: 'THUMB', icon: '👍' }
         ];
 
@@ -224,7 +299,7 @@
             { text: "Are you _ you want to go?", answer: "SURE" },
             { text: "The spooky _ lives in the house.", answer: "WHICH" },
             { text: "First wash, _ eat.", answer: "THEN" },
-            { text: "Don't shout, just _.", answer: "WISPER" },
+            { text: "Don't shout, just _.", answer: "WHISPER" },
             { text: "Give a _ up if you like it.", answer: "THUMB" }
         ];
 
@@ -235,17 +310,37 @@
             learnedWords: new Set(), isAutoplaying: false
         };
 
+        const praisePhrases = ["Good job!", "Amazing!", "You got it!", "Excellent!", "Perfect!", "Way to go!"];
+
+        function celebrate() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#6366f1', '#f43f5e', '#fbbf24', '#22c55e']
+            });
+            const phrase = praisePhrases[Math.floor(Math.random() * praisePhrases.length)];
+            updateSpeech(phrase);
+        }
+
         window.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault();
-                skipLevel();
+                cheatToDiploma();
             }
         });
 
-        function skipLevel() {
-            if (state.currentSection === 'learn') startMission('spelling');
-            else if (state.currentSection === 'spelling') startMission('quiz');
-            else if (state.currentSection === 'quiz') startMission('sentences');
+        function cheatToDiploma() {
+            state.quizCorrect = 16;
+            state.sentenceCorrect = 16;
+            state.quizIdx = 16;
+            state.sentenceIdx = 16;
+            state.stars += 32;
+            document.getElementById('stars-count').innerText = state.stars;
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`sentences-section`).classList.remove('hidden');
+            state.currentSection = 'sentences';
+            finishQuest();
         }
 
         function selectPower(color, name) {
@@ -267,14 +362,18 @@
             }, 500);
         }
 
-        function updateSpeech(text) {
+        function updateSpeech(text, onEndCallback = null) {
+            if (!window.speechSynthesis) return;
             speechSynthesis.cancel();
             document.getElementById('leo-talk').innerText = text;
             const utter = new SpeechSynthesisUtterance(text.toLowerCase());
             utter.lang = 'en-US'; utter.rate = 0.9;
             const avatarContainer = document.getElementById('leo-avatar-container');
             utter.onstart = () => avatarContainer.classList.add('is-talking');
-            utter.onend = () => avatarContainer.classList.remove('is-talking');
+            utter.onend = () => {
+                avatarContainer.classList.remove('is-talking');
+                if (onEndCallback) onEndCallback();
+            };
             speechSynthesis.speak(utter);
             return utter;
         }
@@ -289,8 +388,7 @@
             if(id === 'spelling') {
                 document.getElementById('robot-anchor-spelling').appendChild(robot);
                 robot.className = 'robot-spelling-pos animate__animated animate__fadeInUp';
-                const instructions = "Mission 2! I will say a word, and you must click the letters in the correct order to spell it. The first word is: DISH";
-                updateSpeech(instructions);
+                updateSpeech("Mission 2! I will say a word, and you must click the letters in the correct order to spell it.");
                 renderSpelling();
             } else if (id === 'learn') {
                 updateSpeech(`Welcome ${state.studentName}! Mission 1: click the cards to learn the words!`);
@@ -299,9 +397,7 @@
                 updateSpeech("Final Castle! Listen to Leo and choose the correct word!");
                 renderQuiz();
             } else if (id === 'sentences') {
-                const firstSentenceRead = sentenceQuests[0].text.replace("_", " [blank] ");
-                const fullInstructions = "Sentence Hero Mission! Read the sentence carefully and choose the missing word from the options below. The first sentence is: " + firstSentenceRead;
-                updateSpeech(fullInstructions);
+                updateSpeech("Sentence Hero Mission! Read the sentence carefully and choose the missing word.");
                 renderSentences();
             }
         }
@@ -362,12 +458,6 @@
             const letters = current.word.split('').sort(() => Math.random() - 0.5);
             document.getElementById('spelling-letters').innerHTML = letters.map(l => `<button onclick="checkLetter('${l}', this)" class="w-12 h-12 glass font-bold-game text-xl btn-bounce uppercase">${l}</button>`).join('');
             
-            if (state.spellingIdx > 0) {
-                speechSynthesis.cancel();
-                const utter = new SpeechSynthesisUtterance(current.word.toLowerCase());
-                utter.lang = 'en-US'; speechSynthesis.speak(utter);
-            }
-
             document.getElementById('spelling-repeat-btn').onclick = () => {
                 speechSynthesis.cancel();
                 const utter = new SpeechSynthesisUtterance(current.word.toLowerCase());
@@ -392,14 +482,12 @@
                 
                 if(Array.from(slots).every(s => s.innerText !== "")) {
                     setTimeout(() => {
-                        speechSynthesis.cancel();
-                        const wordUtter = new SpeechSynthesisUtterance(word.toLowerCase());
-                        wordUtter.lang = 'en-US';
-                        speechSynthesis.speak(wordUtter);
-                        
-                        state.spellingIdx++;
-                        setTimeout(renderSpelling, 1500);
-                    }, 600); 
+                        updateSpeech(word, () => {
+                            celebrate();
+                            state.spellingIdx++;
+                            setTimeout(renderSpelling, 1000);
+                        });
+                    }, 400); 
                 }
             } else {
                 btn.classList.add('bg-red-200', 'animate__animated', 'animate__headShake');
@@ -446,23 +534,17 @@
 
         function checkQuiz(ans, btn) {
             const current = originalVocabulary[state.quizIdx];
-            speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(ans.toLowerCase());
-            utter.lang = 'en-US';
-            speechSynthesis.speak(utter);
-
             if(ans === current.word) {
+                celebrate();
                 btn.classList.add('bg-green-400');
                 state.stars++;
                 document.getElementById('stars-count').innerText = state.stars;
                 state.quizCorrect++;
-                state.quizIdx++;
-                setTimeout(renderQuiz, 800);
             } else {
                 btn.classList.add('bg-red-400');
-                state.quizIdx++;
-                setTimeout(renderQuiz, 800);
             }
+            state.quizIdx++;
+            setTimeout(renderQuiz, 1000);
         }
 
         function renderSentences() {
@@ -482,34 +564,21 @@
             options.sort(() => Math.random()-0.5);
             document.getElementById('sentence-options').innerHTML = options.map(o => `<button onclick="checkSentence('${o}', this)" class="glass p-4 text-lg font-bold-game text-slate-700 btn-bounce uppercase">${o}</button>`).join('');
 
-            const sentenceToRead = current.text.replace("_", " [blank] ");
-            if (state.sentenceIdx > 0) {
-                updateSpeech(sentenceToRead);
-            }
-
-            document.getElementById('sentence-repeat-btn').onclick = () => updateSpeech(sentenceToRead);
+            document.getElementById('sentence-repeat-btn').onclick = () => updateSpeech(current.text.replace("_", " [blank] "));
         }
 
         function checkSentence(ans, btn) {
             const current = sentenceQuests[state.sentenceIdx];
-            
             if(ans === current.answer) {
                 document.getElementById('target-slot').innerText = ans;
                 btn.classList.add('bg-green-400');
-                
-                const completedSentence = current.text.replace("_", ans);
-                updateSpeech(completedSentence);
-
+                celebrate();
                 state.stars++;
                 document.getElementById('stars-count').innerText = state.stars;
                 state.sentenceCorrect++;
                 state.sentenceIdx++;
-                setTimeout(renderSentences, 2500); 
+                setTimeout(renderSentences, 1500);
             } else {
-                speechSynthesis.cancel();
-                const utter = new SpeechSynthesisUtterance("Try again!");
-                utter.lang = 'en-US';
-                speechSynthesis.speak(utter);
                 btn.classList.add('bg-red-400', 'animate__animated', 'animate__shakeX');
                 setTimeout(() => btn.classList.remove('bg-red-400', 'animate__animated', 'animate__shakeX'), 500);
             }
@@ -535,9 +604,12 @@
                             <p class="text-3xl font-bold-game">${sentenceScore}%</p>
                         </div>
                     </div>
-                    <button onclick="generateDiploma(${quizScore}, ${sentenceScore})" class="glass px-8 py-4 bg-indigo-600 text-white font-bold-game text-xl btn-bounce">GET YOUR GOLD DIPLOMA</button>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="generateDiploma(${quizScore}, ${sentenceScore})" class="glass px-8 py-4 bg-indigo-600 text-white font-bold-game text-xl btn-bounce">GET YOUR GOLD DIPLOMA</button>
+                        <button onclick="openDB()" class="glass px-8 py-4 bg-amber-500 text-white font-bold-game text-xl btn-bounce">VIEW RANKING</button>
+                    </div>
                 `;
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                confetti({ particleCount: 250, spread: 100, origin: { y: 0.6 } });
                 updateSpeech("Incredible job! You mastered both exams. Here is your diploma!");
             } else {
                 card.innerHTML = `
@@ -556,11 +628,41 @@
                     </div>
                     <button onclick="location.reload()" class="glass px-8 py-4 bg-orange-500 text-white font-bold-game text-xl btn-bounce">TRY AGAIN</button>
                 `;
-                updateSpeech("You did good, but you need 80% in both tests to earn the gold diploma. Try again!");
             }
         }
 
-        function generateDiploma(qScore, sScore) {
+        async function openDB() {
+            const list = document.getElementById('db-list-content');
+            list.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">Loading ranking...</td></tr>';
+            document.getElementById('db-modal').classList.remove('hidden');
+            
+            const data = await window.fetchGameRecords();
+            if (data.length === 0) {
+                list.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">No records found yet.</td></tr>';
+                return;
+            }
+
+            // Sort by scores in memory
+            data.sort((a, b) => (b.quizScore + b.sentenceScore) - (a.quizScore + a.sentenceScore));
+
+            list.innerHTML = data.map(item => `
+                <tr class="border-b border-indigo-50 hover:bg-indigo-50/30 transition-colors">
+                    <td class="p-4 font-bold-game text-slate-700">${item.name}</td>
+                    <td class="p-4 text-indigo-600 font-bold">${item.quizScore}%</td>
+                    <td class="p-4 text-green-600 font-bold">${item.sentenceScore}%</td>
+                    <td class="p-4 text-slate-400 text-sm">${item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'Today'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function closeDB() {
+            document.getElementById('db-modal').classList.add('hidden');
+        }
+
+        async function generateDiploma(qScore, sScore) {
+            // Guardar en DB antes de generar
+            await window.saveGameRecord(state.studentName, qScore, sScore);
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('l', 'mm', 'a4'); 
             doc.setFillColor(245, 243, 255); 
@@ -650,8 +752,8 @@
             doc.setFontSize(14);
             doc.text("★", 260, 158, {align:'center'});
             
-            doc.save(`Diploma_LinguoKids_Unit9_${state.studentName}.pdf`);
+            doc.save(`Diploma_LinguoKids_Unit10_${state.studentName}.pdf`);
         }
     </script>
 </body>
-</html>V
+</html>
